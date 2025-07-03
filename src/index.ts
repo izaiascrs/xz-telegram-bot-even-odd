@@ -105,7 +105,7 @@ riskManager.setOnTargetReached(async (profit, balance) => {
   telegramManager.setBotRunning(false);
 });
 
-const task = schedule('0 */3 * * *', async () => {
+const task = schedule('0 */2 * * *', async () => {
   if (!telegramManager.isRunningBot()) {
     await startBot();
     telegramManager.setBotRunning(true);
