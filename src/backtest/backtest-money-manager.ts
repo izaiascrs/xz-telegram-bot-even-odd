@@ -65,7 +65,8 @@ export class MoneyManager {
           stake,
           profit,
           balance: this.currentBalance,
-          type: 'win'
+          type: 'win',
+          resultDigit: trade.resultDigit
         };
 
         this.trades.push(tradeResult);
@@ -88,7 +89,8 @@ export class MoneyManager {
           stake,
           profit: -stake,
           balance: this.currentBalance,
-          type: 'loss'
+          type: 'loss',
+          resultDigit: trade.resultDigit
         };
 
         this.trades.push(tradeResult);
@@ -97,6 +99,7 @@ export class MoneyManager {
     }
 
     return {
+      cashoutBalance: this.currentBalance,
       finalBalance: this.currentBalance,
       totalVolume: this.totalVolume,
       maxDrawdown: this.maxBalance > 0 ? ((this.maxBalance - this.minBalance) / this.maxBalance) * 100 : 0,
@@ -199,6 +202,7 @@ export class MoneyManager {
 
   private getEmptyResults(): FinancialResults {
     return {
+      cashoutBalance: this.currentBalance,
       finalBalance: this.currentBalance,
       totalVolume: 0,
       maxDrawdown: 0,
