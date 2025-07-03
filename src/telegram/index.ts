@@ -330,6 +330,10 @@ export class TelegramManager {
     return this.isRunning;
   }
 
+  public setBotRunning(isRunning: boolean) {
+    this.isRunning = isRunning;
+  }
+
   public sendMessage(message: string) {
     ALLOWED_CHAT_IDS.forEach(chatId => {
       this.bot.sendMessage(chatId, message, { parse_mode: 'Markdown' });

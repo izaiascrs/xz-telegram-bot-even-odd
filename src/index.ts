@@ -7,6 +7,7 @@ import apiManager from "./ws";
 import { DERIV_TOKEN } from "./utils/constants";
 import { RiskManager, TRiskManagerConfig } from "./risk-management";
 import { getBackTestAllDigits } from "./backtest";
+import { schedule } from "node-cron";
 
 type TSymbol = (typeof symbols)[number];
 type TContractType = (typeof contractTypes)[number];
@@ -48,7 +49,11 @@ const config: TRiskManagerConfig = {
 }
 const balance = 100; // initial balance
 
-export const riskManager = new RiskManager(config, balance);
+export const riskManager = new RiskManager(config, {
+  balance,
+  stopWin: 10,
+  stopLoss: 20,
+});
 
 // Inicializar o banco de dados
 const database = initDatabase();
@@ -71,7 +76,7 @@ const getRandomContractType = () => {
   return contractTypes[randomIndex];
 }
 
-riskManager.setOnTargetReached((profit, balance) => {
+riskManager.setOnSessionEnded((profit, balance) => {
   const message = 
     `🎯 Rodada finalizada!\n` +
     `💰 Lucro: $${profit.toFixed(2)}\n` +
@@ -86,6 +91,28 @@ riskManager.setOnTargetReached((profit, balance) => {
     getNextSymbolAndInitialize();
   }, 500);
     
+});
+
+riskManager.setOnTargetReached(async (profit, balance) => {
+  const message = 
+    `🎯 Sessão finalizada!\n` +
+    `💰 Lucro: $${profit.toFixed(2)}\n` +
+    `💵 Saldo: $${balance.toFixed(2)}\n` +
+    `✨ Nova sessão será iniciada em breve...`;
+
+  telegramManager.sendMessage(message);
+  await stopBot();
+  telegramManager.setBotRunning(false);
+});
+
+const task = schedule('0 */8 * * *', async () => {
+  if (!telegramManager.isRunningBot()) {
+    await startBot();
+    telegramManager.setBotRunning(true);
+  }
+}, {
+  scheduled: false,
+  timezone: "America/Sao_Paulo"
 });
 
 const ticksMap = new Map<TSymbol, number[]>([]);
@@ -243,6 +270,8 @@ const clearSubscriptions = async () => {
     waitingVirtualLoss = false;
     isAuthorized = false;
     tickCount = 0;
+    lastContractId = undefined;
+    clearTradeTimeout();
     ticksMap.clear();
     
   } catch (error) {
@@ -277,9 +306,7 @@ const startBot = async () => {
   try {
     if (!isAuthorized) await authorize();
     await initializeSymbol(nextSymbol());
-    // subscriptions.ticks = subscribeToTicks("R_10");
-    // subscriptions.contracts = subscribeToOpenOrders();
-    
+
     if (!subscriptions.ticks || !subscriptions.contracts) {
       throw new Error("Falha ao criar subscrições");
     }
@@ -294,6 +321,10 @@ const startBot = async () => {
 
 const stopBot = async () => {
   updateActivityTimestamp(); // Atualizar timestamp ao parar o bot
+  clearTradeTimeout();
+  lastContractId = undefined;
+  backTestLoaded = false;
+  currentContractType = undefined;
   await clearSubscriptions();
   telegramManager.sendMessage("🛑 Bot parado e desconectado dos serviços Deriv");
 };
@@ -452,6 +483,7 @@ const runBackTestForSymbol = async (symbol: TSymbol, contractType: TContractType
   tradeConfig.ticksCount = ticks;
   backTestLoaded = true;
 }
+
 // Adicionar verificação periódica do estado do bot
 setInterval(async () => {
   if (telegramManager.isRunningBot() && !isTrading && !waitingVirtualLoss && riskManager.getBalance() > 0) {
@@ -508,3 +540,4 @@ function main() {
 }
 
 main();
+task.start();

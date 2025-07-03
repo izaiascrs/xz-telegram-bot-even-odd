@@ -14,18 +14,31 @@ type TLastResult = {
   totalAmount: number,
 }
 
+type TTargetConfig = {
+  balance: number;
+  stopLoss: number;
+  stopWin: number;
+}
+
 export class RiskManager {
   private lastResults: TLastResult[] = [];
   private config: TRiskManagerConfig;
+  private onSessionEnded?: (profit: number, balance: number) => void;
   private onTargetReached?: (profit: number, balance: number) => void;
   private shouldStop: boolean = false;
   private initialConfig: TRiskManagerConfig;
-  private balance: number = 0;
+  private currentBalance: number = 0;
+  private initialBalance: number = 0;
+  private stopLoss: number = 0;
+  private stopWin: number = 0;
   
-  constructor(config: TRiskManagerConfig, balance: number) {
+  constructor(config: TRiskManagerConfig, targetConfig: TTargetConfig) {
     this.config = config;
     this.initialConfig = { ...config };
-    this.balance = balance;  
+    this.initialBalance = targetConfig.balance;
+    this.currentBalance = targetConfig.balance;  
+    this.stopLoss = targetConfig.stopLoss;
+    this.stopWin = targetConfig.stopWin;
     this.calculateFirstStake(config);
   }
 
@@ -45,6 +58,10 @@ export class RiskManager {
       profit: config.profit,
       totalAmount: stake,
     })
+  }
+
+  setOnSessionEnded(callback: (profit: number, balance: number) => void) {
+    this.onSessionEnded = callback;
   }
 
   setOnTargetReached(callback: (profit: number, balance: number) => void) {
@@ -74,17 +91,22 @@ export class RiskManager {
     });
 
     const profit = this.config.profit - this.config.entry;
-    this.balance = this.balance + current.profit;
+    this.currentBalance = this.currentBalance + current.profit;
 
     if(hasReachTotalTrades) {
       this.shouldStop = true;
-      this.onTargetReached?.(profit, this.balance);      
+      this.onSessionEnded?.(profit, this.currentBalance);      
       return;
     }
 
     if(this.checkIfShouldStop(this.lastResults)) {
-      this.onTargetReached?.(profit, this.balance);
+      this.onSessionEnded?.(profit, this.currentBalance);
       this.shouldStop = true;
+    }
+
+    if(this.checkIfShouldStopByTarget()) {
+      this.shouldStop = true;
+      this.onTargetReached?.(profit, this.currentBalance);
     }
   }
 
@@ -236,6 +258,19 @@ export class RiskManager {
     return false
   }
 
+  private checkIfShouldStopByTarget() {
+    const currentProfit = this.currentBalance - this.initialBalance;
+    if(currentProfit >= this.stopWin) {
+      return true;
+    }
+
+    if(currentProfit <= -this.stopLoss) {
+      return true;
+    }
+
+    return false;
+  }
+
   canContinue() {
     const canContinue = !this.shouldStop;
     if(this.shouldStop) {
@@ -245,11 +280,11 @@ export class RiskManager {
   }
 
   hasSufficientBalance() {
-    return this.balance >= this.initialConfig.profit; // check if the balance is greater than the needed to start the next round
+    return this.currentBalance >= this.initialConfig.profit; // check if the balance is greater than the needed to start the next round
   }
 
   getBalance() {
-    return this.balance;
+    return this.currentBalance;
   }
 
   getCurrentProfit() {
@@ -267,7 +302,8 @@ export class RiskManager {
     this.shouldStop = false;
     this.lastResults = [];
     this.config = { ...this.initialConfig };
-    this.balance = 0;
+    this.currentBalance = 0;
+    this.initialBalance = 0;
   }
 }
 
