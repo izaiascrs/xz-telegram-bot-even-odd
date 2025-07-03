@@ -107,6 +107,8 @@ export class RiskManager {
     if(this.checkIfShouldStopByTarget()) {
       this.shouldStop = true;
       this.onTargetReached?.(profit, this.currentBalance);
+      // update initial balance for the next session 
+      this.initialBalance = this.currentBalance;
     }
   }
 
