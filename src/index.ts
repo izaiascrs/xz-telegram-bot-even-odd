@@ -51,8 +51,8 @@ const balance = 100; // initial balance
 
 export const riskManager = new RiskManager(config, {
   balance,
-  stopWin: 10,
-  stopLoss: 20,
+  stopWin: 5,
+  stopLoss: 10,
 });
 
 // Inicializar o banco de dados
@@ -105,7 +105,7 @@ riskManager.setOnTargetReached(async (profit, balance) => {
   telegramManager.setBotRunning(false);
 });
 
-const task = schedule('0 */8 * * *', async () => {
+const task = schedule('0 */3 * * *', async () => {
   if (!telegramManager.isRunningBot()) {
     await startBot();
     telegramManager.setBotRunning(true);
@@ -473,7 +473,9 @@ const authorize = async () => {
 const runBackTestForSymbol = async (symbol: TSymbol, contractType: TContractType) => {
   const data = await getBackTestAllDigits(symbol, contractType === "DIGITODD" ? "odd" : "even");
   if(!data) return;
-  const bestResult = data[0];
+  // randomize the best result
+  const randomIndex = Math.floor(Math.random() * data.length);
+  const bestResult = data[randomIndex];
   if(!bestResult) return;
 
   const ticks = bestResult.ticks;
