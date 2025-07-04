@@ -258,8 +258,9 @@ export class RiskManager {
       return true;
     }
 
+    const profit = this.config.profit - this.initialConfig.profit;
     // if we the current profit is 40% of the target stop win
-    if(this.config.profit >= this.stopWin * 0.4) {
+    if(profit >= (this.stopWin * 0.4)) {
       return true;
     }
 
