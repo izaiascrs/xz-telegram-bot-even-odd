@@ -118,7 +118,7 @@ export class RiskManager {
   }
 
   private getStartProfit(entries: TLastResult[]) {
-    return Math.max(...entries.map((entry) => entry.totalAmount), this.config.entry);
+    return Math.max(...entries.map((entry) => entry.totalAmount), this.initialConfig.profit);
   }
   
   private handleUpdateLastRowStatus(state: TRiskManagerConfig, lastRow: TLastResult, status: TLastResult['status'] ) {
@@ -126,7 +126,7 @@ export class RiskManager {
     let totalAmount = 0;
 
     const maxProfit = (this.getStartProfit(this.lastResults));
-    const initialProfit = state.entry;
+    const initialProfit = state.profit;
 
     let startProfit = (maxProfit > initialProfit) ? maxProfit : initialProfit;  
     let { loses, wins } = this.calculateWinsAndLoses(this.lastResults, state.performance, initialProfit);
@@ -174,6 +174,8 @@ export class RiskManager {
     }
 
     const hasReachTotalTrades = this.lastResults.length === state.entry;
+
+    // console.log({ wins, loses, totalAmount, startProfit })
 
     return {
       current: {
