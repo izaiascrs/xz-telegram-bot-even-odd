@@ -90,7 +90,7 @@ export class RiskManager {
       totalAmount: updatedProfit,
     });
 
-    const profit = this.config.profit - this.config.entry;
+    const profit = this.config.profit - this.initialConfig.profit;
     this.currentBalance = this.currentBalance + current.profit;
 
     if(hasReachTotalTrades) {
@@ -248,12 +248,18 @@ export class RiskManager {
       return acc;
     }, { winsCount: 0, totalTrades: 0 });
 
+    // if we have 4 wins or less before 10 trades, stop
     if(winsCount <= 4 && totalTrades === this.config.entry) {
       return true;
     }
 
     // if we have 5 wins before 10 trades, stop
     if(winsCount >= 5) {
+      return true;
+    }
+
+    // if we the current profit is 40% of the target stop win
+    if(this.config.profit >= this.stopWin * 0.4) {
       return true;
     }
 
