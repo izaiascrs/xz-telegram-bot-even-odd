@@ -42,7 +42,7 @@ let subscriptions: {
 let activeSubscriptions: any[] = [];
 
 const config: TRiskManagerConfig = {
-  profit: 10, // amount to risk on all trades
+  profit: 5, // amount to risk on all trades
   payout: 1.9, // payout
   entry: 10, // 10 trades
   performance: 4, // 4 wins 
@@ -51,7 +51,7 @@ const balance = 100; // initial balance
 
 export const riskManager = new RiskManager(config, {
   balance,
-  stopWin: 5,
+  stopWin: 2.5,
   stopLoss: 10,
 });
 
@@ -100,12 +100,15 @@ riskManager.setOnTargetReached(async (profit, balance) => {
     `💵 Saldo: $${balance.toFixed(2)}\n` +
     `✨ Nova sessão será iniciada em breve...`;
 
-  telegramManager.sendMessage(message);
-  await stopBot();
-  telegramManager.setBotRunning(false);
+  setTimeout(async () => {
+    telegramManager.sendMessage(message);
+    await stopBot();
+    telegramManager.setBotRunning(false);
+  }, 1000);
+
 });
 
-const task = schedule('0 */2 * * *', async () => {
+const task = schedule('0 */1 * * *', async () => {
   if (!telegramManager.isRunningBot()) {
     await startBot();
     telegramManager.setBotRunning(true);
@@ -154,17 +157,6 @@ function handleTradeResult({
   tickCount = 0;
   lastContractId = undefined;
   waitingVirtualLoss = false;
-
-  // if(!isWin) {
-  //   currentDigit++;
-  //   if(currentDigit > 9) currentDigit = 0;
-  //   const nextTickCount = digitsMap.get(currentDigit);
-  //   if(nextTickCount !== undefined) {
-  //     tradeConfig.entryDigit = currentDigit;
-  //     tradeConfig.ticksCount = nextTickCount;
-  //   }
-
-  // }
   
   if (isWin) {
     newBalance = currentBalance + profit;
@@ -198,16 +190,22 @@ function handleTradeResult({
 async function getLastTradeResult(contractId: number | undefined) {
   if(!contractId) return;
 
-  const data = await apiManager.augmentedSend('proposal_open_contract', { contract_id: contractId })
-  const contract = data.proposal_open_contract;
-  const profit = contract?.profit ?? 0;
-  const stake = contract?.buy_price ?? 0;
-  const status = contract?.status;
-  handleTradeResult({
-    profit,
-    stake,
-    status: status ?? "open"
-  });
+  try {
+    const data = await apiManager.augmentedSend('proposal_open_contract', { contract_id: contractId })
+    const contract = data.proposal_open_contract;
+    const profit = contract?.profit ?? 0;
+    const stake = contract?.buy_price ?? 0;
+    const status = contract?.status;
+    handleTradeResult({
+      profit,
+      stake,
+      status: status ?? "open"
+    });    
+  } catch (error) {
+    console.error('Erro ao obter resultado do trade:', error);
+    clearTradeTimeout();
+    isTrading = false;
+  }
 }
 
 const checkStakeAndBalance = (stake: number) => {
@@ -410,6 +408,10 @@ const subscribeToTicks = (symbol: TSymbol) => {
           const contractId = data.buy?.contract_id;
           lastContractId = contractId;
           createTradeTimeout();
+        }).catch((error) => {
+          console.error('Erro ao abrir contrato:', error);
+          clearTradeTimeout();
+          isTrading = false;
         });
       } else {
         telegramManager.sendMessage(
@@ -471,19 +473,33 @@ const authorize = async () => {
 };
 
 const runBackTestForSymbol = async (symbol: TSymbol, contractType: TContractType) => {
-  const data = await getBackTestAllDigits(symbol, contractType === "DIGITODD" ? "odd" : "even");
-  if(!data) return;
-  // randomize the best result
-  const randomIndex = Math.floor(Math.random() * data.length);
-  const bestResult = data[randomIndex];
-  if(!bestResult) return;
+  const defaultConfig = () => {
+    backTestLoaded = true;
+    tradeConfig.entryDigit = 1;
+    tradeConfig.ticksCount = 10;
+  }
 
-  const ticks = bestResult.ticks;
-  const digit = bestResult.digit;
+  try {
+    const data = await getBackTestAllDigits(symbol, contractType === "DIGITODD" ? "odd" : "even");
+    if(!data) return;
+    const fiveBestResults = data.slice(0, 5);
+    const randomIndex = Math.floor(Math.random() * fiveBestResults.length);
+    const bestResult = fiveBestResults[randomIndex];
+    if(!bestResult) {
+      defaultConfig();
+      return;
+    }
+  
+    const ticks = bestResult.ticks;
+    const digit = bestResult.digit;
+    tradeConfig.entryDigit = digit;
+    tradeConfig.ticksCount = ticks;
+    backTestLoaded = true;    
+  } catch (error) {
+    console.error('Erro ao executar backtest:', error);
+    defaultConfig();
+  }
 
-  tradeConfig.entryDigit = digit;
-  tradeConfig.ticksCount = ticks;
-  backTestLoaded = true;
 }
 
 // Adicionar verificação periódica do estado do bot
