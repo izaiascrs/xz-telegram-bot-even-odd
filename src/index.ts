@@ -215,9 +215,11 @@ const checkStakeAndBalance = (stake: number) => {
       "🚨 *ALERTA CRÍTICO*\n\n" +
         "❌ Bot finalizado automaticamente!\n" +
         "💰 Saldo ou stake chegou a zero\n" +
+        `💵 stake: $${stake}\n` +
         `💵 Saldo final: $${riskManager.getBalance().toFixed(2)}`
     );
     stopBot();
+    telegramManager.setBotRunning(false);
     return false;
   }
   return true;
