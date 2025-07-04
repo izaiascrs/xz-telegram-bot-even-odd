@@ -20,6 +20,9 @@ const CONTRACT_SECONDS = 2;
 let CONTRACT_TICKS = 10;
 let backTestLoaded = false;
 
+let lastResult: "W" | "L" | null = null;
+let invertTrade = false;
+
 const tradeConfig = {
   entryDigit: 0,
   ticksCount: 0, 
@@ -87,8 +90,12 @@ riskManager.setOnSessionEnded((profit, balance) => {
     telegramManager.sendMessage(message);  
     riskManager.resetStatistics();  
     backTestLoaded = false;
-    currentContractType = undefined;
+    currentContractType = undefined;    
     getNextSymbolAndInitialize();
+
+    // reset last result and invert trade for next session
+    lastResult = null;
+    invertTrade = false;
   }, 500);
     
 });
@@ -185,6 +192,21 @@ function handleTradeResult({
   }).catch(err => console.error('Erro ao salvar trade:', err));
 
   clearTradeTimeout();
+
+  // Invert trade if last result is not null and invertTrade is true
+  if(invertTrade === true && lastResult !== null) {
+    invertTrade = false;
+  }
+
+  // Invert trade if last result is null and invertTrade is false and isWin is false
+  // we only try to invert trade once per session
+  if(isWin === false) {
+    if(invertTrade === false && lastResult === null)  {
+      invertTrade = true;
+      lastResult = "L";
+    }
+  }
+
 }
 
 async function getLastTradeResult(contractId: number | undefined) {
@@ -389,6 +411,15 @@ const subscribeToTicks = (symbol: TSymbol) => {
 
         if(!currentContractType) return;
 
+        let contractTypeToUse = currentContractType;
+        if (invertTrade) {
+          contractTypeToUse = currentContractType === "DIGITODD" ? "DIGITEVEN" : "DIGITODD";
+          telegramManager.sendMessage(
+            `🔄 Trade invertido!\n` +
+            `📄 Tipo: ${contractTypeToUse === "DIGITODD" ? "Ímpar" : "Par"}`
+          );
+        }
+
         telegramManager.sendMessage(
           `🎯 Sinal identificado!\n` +
           `💰 Valor da entrada: $${amount.toFixed(2)}`
@@ -404,7 +435,7 @@ const subscribeToTicks = (symbol: TSymbol) => {
             duration: tradeConfig.ticksCount,
             duration_unit: "t",
             amount: Number(amount.toFixed(2)),
-            contract_type: currentContractType,
+            contract_type: contractTypeToUse,
           },
         }).then(async (data) => {
           const contractId = data.buy?.contract_id;
