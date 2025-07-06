@@ -45,7 +45,7 @@ let subscriptions: {
 let activeSubscriptions: any[] = [];
 
 const config: TRiskManagerConfig = {
-  profit: 5, // amount to risk on all trades
+  profit: 10, // amount to risk on all trades
   payout: 1.9, // payout
   entry: 10, // 10 trades
   performance: 4, // 4 wins 
@@ -54,8 +54,8 @@ const balance = 100; // initial balance
 
 export const riskManager = new RiskManager(config, {
   balance,
-  stopWin: 1,
-  stopLoss: 10,
+  stopWin: 1.5,
+  stopLoss: 20,
 });
 
 // Inicializar o banco de dados
