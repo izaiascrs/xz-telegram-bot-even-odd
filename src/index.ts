@@ -54,7 +54,7 @@ const balance = 100; // initial balance
 
 export const riskManager = new RiskManager(config, {
   balance,
-  stopWin: 2.5,
+  stopWin: 1,
   stopLoss: 10,
 });
 
