@@ -243,22 +243,34 @@ export class RiskManager {
       return true;
     }
 
-    // if is the last trade and we have last than 4 wins, stop
-    const { winsCount, totalTrades} = lastResults.reduce((acc, result) => {
-      if(result.status === 'W') acc.winsCount++;
-      acc.totalTrades++;
+    const lossConsecutive = lastResults.reduce((acc, result) => {
+      if(result.status === 'L') return acc + 1;
+      if(result.status === 'W') return acc = 0;
       return acc;
-    }, { winsCount: 0, totalTrades: 0 });
+    }, 0);
+
+    if(lossConsecutive >= 3) {
+      return true;
+    }
+    
+    
+
+    // if is the last trade and we have last than 4 wins, stop
+    // const { winsCount, totalTrades} = lastResults.reduce((acc, result) => {
+    //   if(result.status === 'W') acc.winsCount++;
+    //   acc.totalTrades++;
+    //   return acc;
+    // }, { winsCount: 0, totalTrades: 0 });
 
     // if we have 4 wins or less before 10 trades, stop
-    if(winsCount <= 4 && totalTrades === this.config.entry) {
-      return true;
-    }
+    // if(winsCount <= 4 && totalTrades === this.config.entry) {
+    //   return true;
+    // }
 
     // if we have 5 wins before 10 trades, stop
-    if(winsCount >= 5) {
-      return true;
-    }
+    // if(winsCount >= 5) {
+    //   return true;
+    // }
 
     // const profit = this.config.profit - this.initialConfig.profit;
     // if we the current profit is 40% of the target stop win

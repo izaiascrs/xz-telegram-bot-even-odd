@@ -40,7 +40,14 @@ export function runBackTest(
       maxDrawdown: 0,
       maxBalance: initialBalance,
       minBalance: initialBalance,
-      trades: [],
+      trades: result.trades.map((trade) => ({
+        success: trade.success,
+        stake: 0,
+        profit: 0,
+        balance: 0,
+        type: trade.success ? "win" : "loss" as "win" | "loss",
+        resultDigit: trade.resultDigit,
+      })),
     };
   });
 

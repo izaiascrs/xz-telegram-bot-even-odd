@@ -8,6 +8,7 @@ import { DERIV_TOKEN } from "./utils/constants";
 import { RiskManager, TRiskManagerConfig } from "./risk-management";
 import { getBackTestAllDigits } from "./backtest";
 import { schedule } from "node-cron";
+import { VirtualEntryManager } from "./virtual-entry";
 
 type TSymbol = (typeof symbols)[number];
 type TContractType = (typeof contractTypes)[number];
@@ -45,7 +46,7 @@ let subscriptions: {
 let activeSubscriptions: any[] = [];
 
 const config: TRiskManagerConfig = {
-  profit: 10, // amount to risk on all trades
+  profit: 5, // amount to risk on all trades
   payout: 1.9, // payout
   entry: 10, // 10 trades
   performance: 4, // 4 wins 
@@ -55,8 +56,15 @@ const balance = 100; // initial balance
 export const riskManager = new RiskManager(config, {
   balance,
   stopWin: 1.5,
-  stopLoss: 20,
+  stopLoss: 10,
 });
+
+const virtualEntryManager = new VirtualEntryManager({
+  entryDigit: 0,
+  ticksCount: 0,
+  expectedType: "DIGITODD"
+});
+
 
 // Inicializar o banco de dados
 const database = initDatabase();
@@ -207,6 +215,9 @@ function handleTradeResult({
     }
   }
 
+  virtualEntryManager.reset();
+  virtualEntryManager.onRealEntryResult(isWin ? "W" : "L");
+
 }
 
 async function getLastTradeResult(contractId: number | undefined) {
@@ -351,7 +362,7 @@ const stopBot = async () => {
   telegramManager.sendMessage("🛑 Bot parado e desconectado dos serviços Deriv");
 };
 
-const subscribeToTicks = (symbol: TSymbol) => {  
+const subscribeToTicks = (symbol: TSymbol) => {
   const ticksStream = apiManager.augmentedSubscribe("ticks_history", {
     ticks_history: symbol,
     end: "latest",
@@ -393,7 +404,9 @@ const subscribeToTicks = (symbol: TSymbol) => {
     }
 
     const currentDigits = ticksMap.get(symbol) || [];
-    const lastTick = currentDigits[currentDigits.length - 1];    
+    const lastTick = currentDigits[currentDigits.length - 1];
+
+    virtualEntryManager.onTick(lastTick);
 
     if (!isAuthorized || !telegramManager.isRunningBot() || !backTestLoaded) return;
 
@@ -401,56 +414,54 @@ const subscribeToTicks = (symbol: TSymbol) => {
 
     if (lastTick === tradeConfig.entryDigit) {
       updateActivityTimestamp(); // Atualizar timestamp ao identificar sinal
-      if (!waitingVirtualLoss) {
-        let amount = riskManager.calculateNextStake();
-        const canContinue = riskManager.canContinue();
+      let amount = riskManager.calculateNextStake();
+      const canContinue = riskManager.canContinue();
+      const shouldEnter = virtualEntryManager.shouldEnter();
 
-        if (!checkStakeAndBalance(amount) || !canContinue) {
-          return;
-        }
+      if (!checkStakeAndBalance(amount) || !canContinue) {
+        return;
+      }
 
-        if(!currentContractType) return;
+      if(!currentContractType) return;
 
-        let contractTypeToUse = currentContractType;
-        if (invertTrade) {
-          contractTypeToUse = currentContractType === "DIGITODD" ? "DIGITEVEN" : "DIGITODD";
-          telegramManager.sendMessage(
-            `🔄 Trade invertido!\n` +
-            `📄 Tipo: ${contractTypeToUse === "DIGITODD" ? "Ímpar" : "Par"}`
-          );
-        }
+      if(!shouldEnter) return;
 
+      let contractTypeToUse = currentContractType;
+      if (invertTrade) {
+        contractTypeToUse = currentContractType === "DIGITODD" ? "DIGITEVEN" : "DIGITODD";
         telegramManager.sendMessage(
-          `🎯 Sinal identificado!\n` +
-          `💰 Valor da entrada: $${amount.toFixed(2)}`
-        );
-
-        apiManager.augmentedSend("buy", {
-          buy: "1",
-          price: 100,
-          parameters: {
-            symbol,
-            currency: "USD",
-            basis: "stake",
-            duration: tradeConfig.ticksCount,
-            duration_unit: "t",
-            amount: Number(amount.toFixed(2)),
-            contract_type: contractTypeToUse,
-          },
-        }).then(async (data) => {
-          const contractId = data.buy?.contract_id;
-          lastContractId = contractId;
-          createTradeTimeout();
-        }).catch((error) => {
-          console.error('Erro ao abrir contrato:', error);
-          clearTradeTimeout();
-          isTrading = false;
-        });
-      } else {
-        telegramManager.sendMessage(
-          "⏳ Aguardando confirmação de loss virtual"
+          `🔄 Trade invertido!\n` +
+          `📄 Tipo: ${contractTypeToUse === "DIGITODD" ? "Ímpar" : "Par"}`
         );
       }
+
+      telegramManager.sendMessage(
+        `🎯 Sinal identificado!\n` +
+        `💰 Valor da entrada: $${amount.toFixed(2)}`
+      );
+
+      apiManager.augmentedSend("buy", {
+        buy: "1",
+        price: 100,
+        parameters: {
+          symbol,
+          currency: "USD",
+          basis: "stake",
+          duration: tradeConfig.ticksCount,
+          duration_unit: "t",
+          amount: Number(amount.toFixed(2)),
+          contract_type: contractTypeToUse,
+        },
+      }).then(async (data) => {
+        const contractId = data.buy?.contract_id;
+        lastContractId = contractId;
+        createTradeTimeout();
+      }).catch((error) => {
+        console.error('Erro ao abrir contrato:', error);
+        clearTradeTimeout();
+        isTrading = false;
+      });
+   
       isTrading = true;
       tickCount = 0;
     }
@@ -510,6 +521,13 @@ const runBackTestForSymbol = async (symbol: TSymbol, contractType: TContractType
     backTestLoaded = true;
     tradeConfig.entryDigit = 1;
     tradeConfig.ticksCount = 10;
+    // update virtual entry manager config
+    virtualEntryManager.reset();
+    virtualEntryManager.updateConfig({
+      entryDigit: tradeConfig.entryDigit,
+      ticksCount: tradeConfig.ticksCount,
+      expectedType: contractType
+    });
   }
 
   try {
@@ -522,12 +540,18 @@ const runBackTestForSymbol = async (symbol: TSymbol, contractType: TContractType
       defaultConfig();
       return;
     }
-  
     const ticks = bestResult.ticks;
     const digit = bestResult.digit;
     tradeConfig.entryDigit = digit;
     tradeConfig.ticksCount = ticks;
     backTestLoaded = true;    
+    // update virtual entry manager config
+    virtualEntryManager.reset();
+    virtualEntryManager.updateConfig({
+      entryDigit: tradeConfig.entryDigit,
+      ticksCount: tradeConfig.ticksCount,
+      expectedType: contractType
+    });
   } catch (error) {
     console.error('Erro ao executar backtest:', error);
     defaultConfig();
