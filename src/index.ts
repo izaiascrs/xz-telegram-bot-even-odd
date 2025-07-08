@@ -191,8 +191,10 @@ function handleTradeResult({
     consecutiveWins = 0;
   }
   
+  moneyManager.updateLastTrade(isWin);
+
   riskManager.updateLastResult(isWin ? "W" : "L");
-  telegramManager.updateTradeResult(isWin, riskManager.getBalance());
+  telegramManager.updateTradeResult(isWin, moneyManager.getCurrentBalance());
 
   const resultMessage = isWin ? "✅ Trade ganho!" : "❌ Trade perdido!";
   telegramManager.sendMessage(
@@ -218,17 +220,16 @@ function handleTradeResult({
 
   // Invert trade if last result is null and invertTrade is false and isWin is false
   // we only try to invert trade once per session
-  if(isWin === false) {
-    if(invertTrade === false && lastResult === null)  {
-      // invertTrade = true;
-      // lastResult = "L";
-    }
-  }
+  // if(isWin === false) {
+  //   if(invertTrade === false && lastResult === null)  {
+  //     invertTrade = true;
+  //     lastResult = "L";
+  //   }
+  // }
 
   virtualEntryManager.reset();
   virtualEntryManager.onRealEntryResult(isWin ? "W" : "L");
 
-  moneyManager.updateLastTrade(isWin);
 
 }
 
@@ -254,7 +255,7 @@ async function getLastTradeResult(contractId: number | undefined) {
 }
 
 const checkStakeAndBalance = (stake: number) => {
-  const hasSufficientBalance = riskManager.hasSufficientBalance();
+  const hasSufficientBalance = riskManager.hasSufficientBalance();  
   if (stake < 0.35 || !hasSufficientBalance) {
     telegramManager.sendMessage(
       "🚨 *ALERTA CRÍTICO*\n\n" +
@@ -418,7 +419,7 @@ const subscribeToTicks = (symbol: TSymbol) => {
     const currentDigits = ticksMap.get(symbol) || [];
     const lastTick = currentDigits[currentDigits.length - 1];
 
-    // virtualEntryManager.onTick(lastTick);
+    virtualEntryManager.onTick(lastTick);
 
     if (!isAuthorized || !telegramManager.isRunningBot() || !backTestLoaded) return;
 
@@ -428,7 +429,7 @@ const subscribeToTicks = (symbol: TSymbol) => {
       updateActivityTimestamp(); // Atualizar timestamp ao identificar sinal
       const amount = moneyManager.calculateNextStake();
       const canContinue = riskManager.canContinue();
-      // const shouldEnter = virtualEntryManager.shouldEnter();
+      const shouldEnter = virtualEntryManager.shouldEnter();
 
       if (!checkStakeAndBalance(amount) || !canContinue) {
         return;
@@ -436,7 +437,7 @@ const subscribeToTicks = (symbol: TSymbol) => {
 
       if(!currentContractType) return;
 
-      // if(!shouldEnter) return;
+      if(!shouldEnter) return;
 
       let contractTypeToUse = currentContractType;
       if (invertTrade) {
