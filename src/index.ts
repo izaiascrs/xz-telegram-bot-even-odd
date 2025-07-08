@@ -230,7 +230,6 @@ function handleTradeResult({
   virtualEntryManager.reset();
   virtualEntryManager.onRealEntryResult(isWin ? "W" : "L");
 
-
 }
 
 async function getLastTradeResult(contractId: number | undefined) {
