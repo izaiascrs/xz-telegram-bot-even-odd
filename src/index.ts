@@ -220,8 +220,8 @@ function handleTradeResult({
   // we only try to invert trade once per session
   if(isWin === false) {
     if(invertTrade === false && lastResult === null)  {
-      invertTrade = true;
-      lastResult = "L";
+      // invertTrade = true;
+      // lastResult = "L";
     }
   }
 
