@@ -426,17 +426,16 @@ const subscribeToTicks = (symbol: TSymbol) => {
 
     if (lastTick === tradeConfig.entryDigit) {
       updateActivityTimestamp(); // Atualizar timestamp ao identificar sinal
+      const shouldEnter = virtualEntryManager.shouldEnter();
+      if(!shouldEnter) return;
+      if(!currentContractType) return;
+      
       const amount = moneyManager.calculateNextStake();
       const canContinue = riskManager.canContinue();
-      const shouldEnter = virtualEntryManager.shouldEnter();
-
+      
       if (!checkStakeAndBalance(amount) || !canContinue) {
         return;
       }
-
-      if(!currentContractType) return;
-
-      if(!shouldEnter) return;
 
       let contractTypeToUse = currentContractType;
       if (invertTrade) {
