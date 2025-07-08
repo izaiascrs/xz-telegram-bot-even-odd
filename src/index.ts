@@ -9,6 +9,7 @@ import { RiskManager, TRiskManagerConfig } from "./risk-management";
 import { getBackTestAllDigits } from "./backtest";
 import { schedule } from "node-cron";
 import { VirtualEntryManager } from "./virtual-entry";
+import { MoneyManager } from "./money-management/moneyManager";
 
 type TSymbol = (typeof symbols)[number];
 type TContractType = (typeof contractTypes)[number];
@@ -65,6 +66,15 @@ const virtualEntryManager = new VirtualEntryManager({
   expectedType: "DIGITODD"
 });
 
+const moneyManager = new MoneyManager({
+  type: "martingale",
+  initialBalance: 100,
+  initialStake: 0.35,
+  profitPercent: 91,
+  winsBeforeMartingale: 0,
+  targetProfit: 2,
+}, 100);
+
 
 // Inicializar o banco de dados
 const database = initDatabase();
@@ -108,7 +118,7 @@ riskManager.setOnSessionEnded((profit, balance) => {
     
 });
 
-riskManager.setOnTargetReached(async (profit, balance) => {
+moneyManager.setOnTargetReached((profit, balance) => {  
   const message = 
     `🎯 Sessão finalizada!\n` +
     `💰 Lucro: $${profit.toFixed(2)}\n` +
@@ -120,8 +130,8 @@ riskManager.setOnTargetReached(async (profit, balance) => {
     await stopBot();
     telegramManager.setBotRunning(false);
   }, 1000);
-
 });
+
 
 const task = schedule('0 */1 * * *', async () => {
   if (!telegramManager.isRunningBot()) {
@@ -188,7 +198,7 @@ function handleTradeResult({
   telegramManager.sendMessage(
     `${resultMessage}\n` +
     `💰 ${isWin ? 'Lucro' : 'Prejuízo'}: $${isWin ? profit : stake}\n` +
-    `💵 Saldo: $${riskManager.getCurrentProfit().toFixed(2)}`
+    `💵 Saldo: $${moneyManager.getCurrentBalance().toFixed(2)}`
   );  
 
   // Salvar trade no banco
@@ -217,6 +227,8 @@ function handleTradeResult({
 
   virtualEntryManager.reset();
   virtualEntryManager.onRealEntryResult(isWin ? "W" : "L");
+
+  moneyManager.updateLastTrade(isWin);
 
 }
 
@@ -406,7 +418,7 @@ const subscribeToTicks = (symbol: TSymbol) => {
     const currentDigits = ticksMap.get(symbol) || [];
     const lastTick = currentDigits[currentDigits.length - 1];
 
-    virtualEntryManager.onTick(lastTick);
+    // virtualEntryManager.onTick(lastTick);
 
     if (!isAuthorized || !telegramManager.isRunningBot() || !backTestLoaded) return;
 
@@ -414,9 +426,9 @@ const subscribeToTicks = (symbol: TSymbol) => {
 
     if (lastTick === tradeConfig.entryDigit) {
       updateActivityTimestamp(); // Atualizar timestamp ao identificar sinal
-      let amount = riskManager.calculateNextStake();
+      const amount = moneyManager.calculateNextStake();
       const canContinue = riskManager.canContinue();
-      const shouldEnter = virtualEntryManager.shouldEnter();
+      // const shouldEnter = virtualEntryManager.shouldEnter();
 
       if (!checkStakeAndBalance(amount) || !canContinue) {
         return;
@@ -424,7 +436,7 @@ const subscribeToTicks = (symbol: TSymbol) => {
 
       if(!currentContractType) return;
 
-      if(!shouldEnter) return;
+      // if(!shouldEnter) return;
 
       let contractTypeToUse = currentContractType;
       if (invertTrade) {

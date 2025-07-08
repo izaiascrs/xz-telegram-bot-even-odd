@@ -79,10 +79,10 @@ export class MoneyManager {
     this.currentBalance += profit;
     this.sessionProfit += profit;
 
-    if (this.accumulatedLoss > 0) {
-      this.accumulatedLoss =
-        profit > this.accumulatedLoss ? 0 : this.accumulatedLoss - profit;
-    }
+    // if (this.accumulatedLoss > 0) {
+    //   this.accumulatedLoss =
+    //     profit > this.accumulatedLoss ? 0 : this.accumulatedLoss - profit;
+    // }
 
     // Verifica se atingiu lucro alvo
     if (
@@ -150,29 +150,29 @@ export class MoneyManager {
     if (this.lastTrade?.type === "win") {
       this.consecutiveLosses = 0;
       this.consecutiveWins++;
-      if (this.consecutiveWins >= this.currentWinsRequired && this.accumulatedLoss > 0) {
+      // if (this.consecutiveWins >= this.currentWinsRequired && this.accumulatedLoss > 0) {
         // Após win com martingale, próxima stake é lucro + entrada inicial
         // const profit = this.lastTrade.stake * (this.config.profitPercent / 100);
         // return this.config.initialStake + profit;
-        const neededProfit = this.accumulatedLoss;
-        const profitRate = this.config.profitPercent / 100;
-        const recoveryStake =
-          (neededProfit + this.config.initialStake) / profitRate;
+        // const neededProfit = this.accumulatedLoss;
+        // const profitRate = this.config.profitPercent / 100;
+        // const recoveryStake =
+        //   (neededProfit + this.config.initialStake) / profitRate;
 
-        const finalStake = Math.min(
-          recoveryStake,
-          this.config.maxStake || Infinity,
-          this.currentBalance
-        );
+        // const finalStake = Math.min(
+        //   recoveryStake,
+        //   this.config.maxStake || Infinity,
+        //   this.currentBalance
+        // );
 
         this.recoveryMode = false;
         this.consecutiveWins = 0;
         this.accumulatedLoss = 0;
-        this.isMartingaleTrade = true;
+        this.isMartingaleTrade = false;
 
-        return finalStake;
+      //   return this.config.initialStake;
 
-      }
+      // }
       return this.config.initialStake;
     }
 
@@ -189,10 +189,15 @@ export class MoneyManager {
 
       this.recoveryMode = true;
       this.consecutiveWins = 0;
-      this.accumulatedLoss += Math.abs(this.lastTrade.profit);
+      this.accumulatedLoss += Math.abs(this.lastTrade.stake);
       this.isMartingaleTrade = false;
 
-      return this.config.initialStake;
+      const neededProfit = this.accumulatedLoss;
+        const profitRate = this.config.profitPercent / 100;
+        const recoveryStake =
+          (neededProfit) / profitRate;
+
+      return recoveryStake;
     }
     
     // Corrigido cálculo do martingale
