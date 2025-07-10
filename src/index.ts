@@ -437,14 +437,14 @@ const subscribeToTicks = (symbol: TSymbol) => {
         return;
       }
 
-      let contractTypeToUse = virtualEntryManager.getCurrentContractType();
-      
-      if (virtualEntryManager.isSignalInverted()) {        
-        telegramManager.sendMessage(
-          `🔄 Trade invertido!\n` +
-          `📄 Tipo: ${contractTypeToUse === "DIGITODD" ? "Ímpar" : "Par"}`
-        );
-      }
+      const contractTypeToUse = currentContractType;
+      // if (virtualEntryManager.isSignalInverted()) {
+      //   contractTypeToUse = currentContractType === "DIGITODD" ? "DIGITEVEN" : "DIGITODD";
+      //   telegramManager.sendMessage(
+      //     `🔄 Trade invertido!\n` +
+      //     `📄 Tipo: ${contractTypeToUse === "DIGITODD" ? "Ímpar" : "Par"}`
+      //   );
+      // }
 
       telegramManager.sendMessage(
         `🎯 Sinal identificado!\n` +
