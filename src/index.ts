@@ -220,12 +220,12 @@ function handleTradeResult({
 
   // Invert trade if last result is null and invertTrade is false and isWin is false
   // we only try to invert trade once per session
-  // if(isWin === false) {
-  //   if(invertTrade === false && lastResult === null)  {
-  //     invertTrade = true;
-  //     lastResult = "L";
-  //   }
-  // }
+   if(isWin === false) {
+     if(invertTrade === false && lastResult === null)  {
+       invertTrade = true;
+       lastResult = "L";
+     }
+  }
 
   virtualEntryManager.reset();
   virtualEntryManager.onRealEntryResult(isWin ? "W" : "L");
