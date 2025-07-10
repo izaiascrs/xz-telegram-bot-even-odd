@@ -13,9 +13,21 @@ export class VirtualEntryManager {
   private waitingForSignal = false;
   private signalIndex: number | null = null;
   private tickIndex: number = 0;
+  private isInverted: boolean = false; // Nova propriedade para controlar inversão
 
   constructor(config: VirtualEntryConfig) {
     this.config = config;
+  }
+
+  // Nova função para inverter o sinal
+  invertSignal() {
+    this.isInverted = !this.isInverted;
+    this.reset(); // Reset para aplicar nova lógica
+  }
+
+  // Função para verificar se está invertido
+  isSignalInverted(): boolean {
+    return this.isInverted;
   }
 
   onTick(digit: number) {
@@ -49,10 +61,21 @@ export class VirtualEntryManager {
   }
 
   onVirtualResult(result: VirtualResult) {
-    if (this.lastVirtualResult === "L" && result === "W") {
-      this.readyToEnter = true;
+    // Lógica invertida: se está invertido, esperamos Win → Loss
+    if (this.isInverted) {
+      // Lógica invertida: Win → Loss
+      if (this.lastVirtualResult === "W" && result === "L") {
+        this.readyToEnter = true;
+      } else {
+        this.readyToEnter = false;
+      }
     } else {
-      this.readyToEnter = false;
+      // Lógica normal: Loss → Win
+      if (this.lastVirtualResult === "L" && result === "W") {
+        this.readyToEnter = true;
+      } else {
+        this.readyToEnter = false;
+      }
     }
     this.lastVirtualResult = result;
   }
@@ -67,6 +90,7 @@ export class VirtualEntryManager {
     this.waitingForSignal = false;
     this.signalIndex = null;
     this.tickIndex = 0;
+    // Não resetamos isInverted aqui, mantemos o estado de inversão
   }
 
   onRealEntryResult(result: VirtualResult) {
@@ -80,6 +104,16 @@ export class VirtualEntryManager {
 
   updateConfig(config: VirtualEntryConfig) {
     this.config = config;
+  }
+
+  // Função para obter o tipo de contrato invertido
+  getInvertedContractType(): "DIGITODD" | "DIGITEVEN" {
+    return this.config.expectedType === "DIGITODD" ? "DIGITEVEN" : "DIGITODD";
+  }
+
+  // Função para obter o tipo de contrato atual (considerando inversão)
+  getCurrentContractType(): "DIGITODD" | "DIGITEVEN" {
+    return this.isInverted ? this.getInvertedContractType() : this.config.expectedType;
   }
 }
 

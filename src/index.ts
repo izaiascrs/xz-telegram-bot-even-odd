@@ -35,6 +35,7 @@ let isTrading = false;
 let waitingVirtualLoss = false;
 let tickCount = 0;
 let consecutiveWins = 0;
+let consecutiveLosses = 0;
 let lastContractId: number | undefined = undefined;
 let lastContractIntervalId: NodeJS.Timeout | null = null;
 
@@ -132,7 +133,6 @@ moneyManager.setOnTargetReached((profit, balance) => {
   }, 1000);
 });
 
-
 const task = schedule('0 */1 * * *', async () => {
   if (!telegramManager.isRunningBot()) {
     await startBot();
@@ -186,9 +186,11 @@ function handleTradeResult({
   if (isWin) {
     newBalance = currentBalance + profit;
     consecutiveWins++;
+    consecutiveLosses = 0;
   } else {
     newBalance = currentBalance - stake;
     consecutiveWins = 0;
+    consecutiveLosses++;
   }
   
   moneyManager.updateLastTrade(isWin);
@@ -213,18 +215,16 @@ function handleTradeResult({
 
   clearTradeTimeout();
 
-  // Invert trade if last result is not null and invertTrade is true
-  if(invertTrade === true && lastResult !== null) {
-    invertTrade = false;
+
+  // if the trade is win and the signal is inverted, return the signal to the original state
+  if(isWin && virtualEntryManager.isSignalInverted()) {
+    virtualEntryManager.invertSignal();
   }
 
-  // Invert trade if last result is null and invertTrade is false and isWin is false
-  // we only try to invert trade once per session
-   if(isWin === false) {
-     if(invertTrade === false && lastResult === null)  {
-       invertTrade = true;
-       lastResult = "L";
-     }
+  // Invert trade if last result is not null and invertTrade is true
+  if(consecutiveLosses >= 3) {
+    virtualEntryManager.invertSignal();
+    consecutiveLosses = 0;
   }
 
   virtualEntryManager.reset();
@@ -437,9 +437,9 @@ const subscribeToTicks = (symbol: TSymbol) => {
         return;
       }
 
-      let contractTypeToUse = currentContractType;
-      if (invertTrade) {
-        contractTypeToUse = currentContractType === "DIGITODD" ? "DIGITEVEN" : "DIGITODD";
+      let contractTypeToUse = virtualEntryManager.getCurrentContractType();
+      
+      if (virtualEntryManager.isSignalInverted()) {        
         telegramManager.sendMessage(
           `🔄 Trade invertido!\n` +
           `📄 Tipo: ${contractTypeToUse === "DIGITODD" ? "Ímpar" : "Par"}`
