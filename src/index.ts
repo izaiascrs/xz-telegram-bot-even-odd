@@ -23,7 +23,7 @@ let CONTRACT_TICKS = 10;
 let backTestLoaded = false;
 
 let lastResult: "W" | "L" | null = null;
-let invertTrade = true;
+let invertTrade = false;
 
 const tradeConfig = {
   entryDigit: 0,
