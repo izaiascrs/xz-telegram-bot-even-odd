@@ -8,7 +8,7 @@ interface VirtualEntryConfig {
 
 export class VirtualEntryManager {
   private config: VirtualEntryConfig;
-  private lastVirtualResult: VirtualResult | null = null;
+  private virtualHistory: VirtualResult[] = []; // Histórico das últimas 3 entradas virtuais
   private readyToEnter: boolean = false;
   private waitingForSignal = false;
   private signalIndex: number | null = null;
@@ -61,23 +61,33 @@ export class VirtualEntryManager {
   }
 
   onVirtualResult(result: VirtualResult) {
-    // Lógica invertida: se está invertido, esperamos Win → Loss
-    if (this.isInverted) {
-      // Lógica invertida: Win → Loss
-      if (this.lastVirtualResult === "W" && result === "L") {
+    // Adiciona o resultado ao histórico
+    this.virtualHistory.push(result);
+    
+    // Mantém apenas as últimas 3 entradas
+    if (this.virtualHistory.length > 3) {
+      this.virtualHistory.shift(); // Remove a primeira entrada
+    }
+    
+    // Verifica se temos a sequência "Loss, Win, Win"
+    this.checkForEntrySequence();
+  }
+
+  private checkForEntrySequence() {
+    // Verifica se temos exatamente 3 entradas no histórico
+    if (this.virtualHistory.length === 3) {
+      const [first, second, third] = this.virtualHistory;
+      
+      // Verifica a sequência "Loss, Win, Win"
+      if (first === "L" && second === "W" && third === "W") {
         this.readyToEnter = true;
       } else {
         this.readyToEnter = false;
       }
     } else {
-      // Lógica normal: Loss → Win
-      if (this.lastVirtualResult === "L" && result === "W") {
-        this.readyToEnter = true;
-      } else {
-        this.readyToEnter = false;
-      }
+      // Se não temos 3 entradas ainda, não libera
+      this.readyToEnter = false;
     }
-    this.lastVirtualResult = result;
   }
 
   shouldEnter(): boolean {
@@ -85,7 +95,7 @@ export class VirtualEntryManager {
   }
 
   reset() {
-    this.lastVirtualResult = null;
+    this.virtualHistory = [];
     this.readyToEnter = false;
     this.waitingForSignal = false;
     this.signalIndex = null;
@@ -94,11 +104,8 @@ export class VirtualEntryManager {
   }
 
   onRealEntryResult(result: VirtualResult) {
-    if (result === "L") {
-      this.lastVirtualResult = "L";
-    } else {
-      this.lastVirtualResult = null;
-    }
+    // Após uma entrada real, resetamos o histórico
+    this.virtualHistory = [];
     this.readyToEnter = false;
   }
 
@@ -114,6 +121,11 @@ export class VirtualEntryManager {
   // Função para obter o tipo de contrato atual (considerando inversão)
   getCurrentContractType(): "DIGITODD" | "DIGITEVEN" {
     return this.isInverted ? this.getInvertedContractType() : this.config.expectedType;
+  }
+
+  // Função para obter o histórico atual (útil para debug)
+  getVirtualHistory(): VirtualResult[] {
+    return [...this.virtualHistory];
   }
 }
 

@@ -23,7 +23,7 @@ let CONTRACT_TICKS = 10;
 let backTestLoaded = false;
 
 let lastResult: "W" | "L" | null = null;
-let invertTrade = false;
+let invertTrade = true;
 
 const tradeConfig = {
   entryDigit: 0,
@@ -437,14 +437,14 @@ const subscribeToTicks = (symbol: TSymbol) => {
         return;
       }
 
-      const contractTypeToUse = currentContractType;
-      // if (virtualEntryManager.isSignalInverted()) {
-      //   contractTypeToUse = currentContractType === "DIGITODD" ? "DIGITEVEN" : "DIGITODD";
-      //   telegramManager.sendMessage(
-      //     `🔄 Trade invertido!\n` +
-      //     `📄 Tipo: ${contractTypeToUse === "DIGITODD" ? "Ímpar" : "Par"}`
-      //   );
-      // }
+      let contractTypeToUse = currentContractType;
+      if (invertTrade) {
+        contractTypeToUse = currentContractType === "DIGITODD" ? "DIGITEVEN" : "DIGITODD";
+        telegramManager.sendMessage(
+          `🔄 Trade invertido!\n` +
+          `📄 Tipo: ${contractTypeToUse === "DIGITODD" ? "Ímpar" : "Par"}`
+        );
+      }
 
       telegramManager.sendMessage(
         `🎯 Sinal identificado!\n` +
