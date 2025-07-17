@@ -23,7 +23,7 @@ let CONTRACT_TICKS = 10;
 let backTestLoaded = false;
 
 let lastResult: "W" | "L" | null = null;
-let invertTrade = false;
+let invertTrade = true;
 
 const tradeConfig = {
   entryDigit: 0,
@@ -114,7 +114,7 @@ riskManager.setOnSessionEnded((profit, balance) => {
 
     // reset last result and invert trade for next session
     lastResult = null;
-    invertTrade = false;
+    invertTrade = true;
   }, 500);
     
 });
@@ -217,15 +217,15 @@ function handleTradeResult({
 
 
   // if the trade is win and the signal is inverted, return the signal to the original state
-  if(isWin && virtualEntryManager.isSignalInverted()) {
-    virtualEntryManager.invertSignal();
-  }
+  // if(isWin && virtualEntryManager.isSignalInverted()) {
+  //   virtualEntryManager.invertSignal();
+  // }
 
-  // Invert trade if last result is not null and invertTrade is true
-  if(consecutiveLosses >= 3) {
-    virtualEntryManager.invertSignal();
-    consecutiveLosses = 0;
-  }
+  // // Invert trade if last result is not null and invertTrade is true
+  // if(consecutiveLosses >= 3) {
+  //   virtualEntryManager.invertSignal();
+  //   consecutiveLosses = 0;
+  // }
 
   virtualEntryManager.reset();
   virtualEntryManager.onRealEntryResult(isWin ? "W" : "L");
