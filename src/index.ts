@@ -23,7 +23,7 @@ let CONTRACT_TICKS = 10;
 let backTestLoaded = false;
 
 let lastResult: "W" | "L" | null = null;
-let invertTrade = true;
+let invertTrade = false;
 
 const tradeConfig = {
   entryDigit: 0,
@@ -68,12 +68,12 @@ const virtualEntryManager = new VirtualEntryManager({
 });
 
 const moneyManager = new MoneyManager({
-  type: "martingale",
+  type: "fixed",
   initialBalance: 100,
-  initialStake: 0.35,
-  profitPercent: 91,
+  initialStake: 1,
+  profitPercent: 90,
   winsBeforeMartingale: 0,
-  targetProfit: 2,
+  targetProfit: 10,
 }, 100);
 
 
@@ -114,7 +114,7 @@ riskManager.setOnSessionEnded((profit, balance) => {
 
     // reset last result and invert trade for next session
     lastResult = null;
-    invertTrade = true;
+    invertTrade = false;
   }, 500);
     
 });
