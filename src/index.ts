@@ -227,8 +227,10 @@ function handleTradeResult({
   //   consecutiveLosses = 0;
   // }
 
-  virtualEntryManager.reset();
-  virtualEntryManager.onRealEntryResult(isWin ? "W" : "L");
+  if(isWin === false) {
+    virtualEntryManager.reset();
+    virtualEntryManager.onRealEntryResult("L");
+  }
 
 }
 
